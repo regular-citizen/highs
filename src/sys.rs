@@ -4,7 +4,7 @@
 
 use std::mem;
 
-use js_sys::{JsString, Number, Object, Uint8Array, Reflect};
+use js_sys::{JsString, Number, Object, Reflect, Uint8Array};
 use wasm_bindgen::prelude::*;
 
 // Lifted from highs-sys
@@ -55,11 +55,7 @@ extern "C" {
     #[wasm_bindgen]
     pub fn Highs_getModelStatus(h: Number) -> Number;
     #[wasm_bindgen]
-    pub fn Highs_getSolution(
-        h: Number,
-        c: Number,
-        r: Number,
-    ) -> Object;
+    pub fn Highs_getSolution(h: Number, c: Number, r: Number) -> Object;
     #[wasm_bindgen]
     pub fn Highs_passLp(
         h: Number,
@@ -132,7 +128,11 @@ pub fn Highs_getSolution_wrap(
     cols: usize,
     rows: usize,
 ) -> (HighsInt, Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>) {
-    let o = Highs_getSolution(h, Number::from(cols as u32), Number::from(rows as u32));
+    let o = Highs_getSolution(
+        h,
+        Number::from((cols * mem::size_of::<f64>()) as u32),
+        Number::from((rows * mem::size_of::<f64>()) as u32),
+    );
     let ret = Reflect::get(&o, &JsValue::from("ret")).unwrap();
     let mut colvalue: Vec<f64> = Vec::with_capacity(cols);
     let mut coldual: Vec<f64> = Vec::with_capacity(cols);
@@ -161,5 +161,11 @@ pub fn Highs_getSolution_wrap(
             rowdual.push(f64::from_ne_bytes(buff));
         }
     }
-    (ret.as_f64().unwrap() as HighsInt, colvalue, coldual, rowvalue, rowdual)
+    (
+        ret.as_f64().unwrap() as HighsInt,
+        colvalue,
+        coldual,
+        rowvalue,
+        rowdual,
+    )
 }
