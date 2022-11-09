@@ -1,8 +1,5 @@
 //! col-oriented matrix to build a problem variable by variable
-use std::borrow::Borrow;
-use std::convert::TryInto;
-use std::ops::RangeBounds;
-use std::os::raw::c_int;
+use std::{borrow::Borrow, convert::TryInto, ops::RangeBounds, os::raw::c_int};
 
 use crate::Problem;
 
@@ -56,7 +53,7 @@ impl Problem<ColMatrix> {
     }
 
     /// Same as add_column, but forces the solution to contain an integer value for this variable.
-    /// 
+    ///
     /// ```
     /// use highs::{ColProblem, Sense};
     /// let mut pb = ColProblem::new();

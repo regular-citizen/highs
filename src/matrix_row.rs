@@ -1,11 +1,7 @@
 //! row-oriented matrix to build a problem constraint by constraint
-use std::borrow::Borrow;
-use std::convert::TryInto;
-use std::ops::RangeBounds;
-use std::os::raw::c_int;
+use std::{borrow::Borrow, convert::TryInto, ops::RangeBounds, os::raw::c_int};
 
-use crate::matrix_col::ColMatrix;
-use crate::Problem;
+use crate::{matrix_col::ColMatrix, Problem};
 
 /// Represents a variable
 #[derive(Debug, Clone, Copy)]
@@ -71,7 +67,7 @@ impl Problem<RowMatrix> {
         N: Into<f64> + Copy,
         B: RangeBounds<N>,
         ITEM: Borrow<(Col, f64)>,
-        I: IntoIterator<Item=ITEM>,
+        I: IntoIterator<Item = ITEM>,
     >(
         &mut self,
         bounds: B,
@@ -111,8 +107,7 @@ impl From<RowMatrix> for ColMatrix {
 #[allow(clippy::float_cmp)]
 #[test]
 fn test_conversion() {
-    use crate::status::HighsModelStatus::Optimal;
-    use crate::{ColProblem, Model, RowProblem, Sense};
+    use crate::{status::HighsModelStatus::Optimal, ColProblem, Model, RowProblem, Sense};
     let inf = f64::INFINITY;
     let neg_inf = f64::NEG_INFINITY;
     let mut p = RowProblem::default();

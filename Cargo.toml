@@ -10,6 +10,7 @@ keywords = ["linear-programming", "optimization", "math", "solver"]
 
 [dependencies]
 js-sys = "0.3"
+wasm-bindgen = "0.2"
 wasm-logger = "0.2"
 log = "0.4"
 

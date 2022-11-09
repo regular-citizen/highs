@@ -1,44 +1,47 @@
-use std::ffi::{c_void, CString, CStr};
-use std::os::raw::{c_char, c_int};
+use std::ffi::{CStr, CString};
 
-use crate::sys;
+use js_sys::{JsString, Number};
+
+use crate::{sys, HighsPtr};
 
 pub trait HighsOptionValue {
-    unsafe fn apply_to_highs(self, highs: *mut c_void, option: *const c_char) -> c_int;
+    fn apply_to_highs(self, highs: HighsPtr, option: &JsString) -> Number;
 }
 
 impl HighsOptionValue for bool {
-    unsafe fn apply_to_highs(self, highs: *mut c_void, option: *const c_char) -> c_int {
+    fn apply_to_highs(self, highs: HighsPtr, option: &JsString) -> Number {
         sys::Highs_setBoolOptionValue(highs, option, if self { 1 } else { 0 })
     }
 }
 
 impl HighsOptionValue for i32 {
-    unsafe fn apply_to_highs(self, highs: *mut c_void, option: *const c_char) -> c_int {
+    fn apply_to_highs(self, highs: HighsPtr, option: &JsString) -> Number {
         sys::Highs_setIntOptionValue(highs, option, self)
     }
 }
 
 impl HighsOptionValue for f64 {
-    unsafe fn apply_to_highs(self, highs: *mut c_void, option: *const c_char) -> c_int {
+    fn apply_to_highs(self, highs: HighsPtr, option: &JsString) -> Number {
         sys::Highs_setDoubleOptionValue(highs, option, self)
     }
 }
 
 impl<'a> HighsOptionValue for &'a CStr {
-    unsafe fn apply_to_highs(self, highs: *mut c_void, option: *const c_char) -> c_int {
+    fn apply_to_highs(self, highs: HighsPtr, option: &JsString) -> Number {
         sys::Highs_setStringOptionValue(highs, option, self.as_ptr())
     }
 }
 
 impl<'a> HighsOptionValue for &'a [u8] {
-    unsafe fn apply_to_highs(self, highs: *mut c_void, option: *const c_char) -> c_int {
-        CString::new(self).expect("invalid highs option value").apply_to_highs(highs, option)
+    fn apply_to_highs(self, highs: HighsPtr, option: &JsString) -> Number {
+        CString::new(self)
+            .expect("invalid highs option value")
+            .apply_to_highs(highs, option)
     }
 }
 
 impl<'a> HighsOptionValue for &'a str {
-    unsafe fn apply_to_highs(self, highs: *mut c_void, option: *const c_char) -> c_int {
+    fn apply_to_highs(self, highs: HighsPtr, option: &JsString) -> Number {
         self.as_bytes().apply_to_highs(highs, option)
     }
 }

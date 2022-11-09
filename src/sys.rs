@@ -28,10 +28,20 @@ pub const STATUS_OK: HighsInt = 0;
 pub const STATUS_WARNING: HighsInt = 1;
 pub const STATUS_ERROR: HighsInt = -1;
 
-pub const MATRIX_FORMAT_NONE:HighsInt = 0;
-pub const MATRIX_FORMAT_COLUMN_WISE:HighsInt = 1;
-pub const MATRIX_FORMAT_ROW_WISE:HighsInt = 2;
+pub const MATRIX_FORMAT_NONE: HighsInt = 0;
+pub const MATRIX_FORMAT_COLUMN_WISE: HighsInt = 1;
+pub const MATRIX_FORMAT_ROW_WISE: HighsInt = 2;
 
-pub const OBJECTIVE_SENSE_MINIMIZE:HighsInt = 1;
-pub const OBJECTIVE_SENSE_MAXIMIZE:HighsInt = -1;
+pub const OBJECTIVE_SENSE_MINIMIZE: HighsInt = 1;
+pub const OBJECTIVE_SENSE_MAXIMIZE: HighsInt = -1;
 
+use js_sys::{global, Function, Reflect};
+use wasm_bindgen::{prelude::*, JsCast};
+
+fn get_highs_method(name: &str) -> Option<&'static Function> {
+    let highs = Reflect::get(&global(), &JsValue::from("highs"))
+        .expect("HiGHS module not present in global scope!");
+    Reflect::get(&highs, &JsValue::from(name))
+        .ok()
+        .and_then(|f| f.dyn_ref())
+}

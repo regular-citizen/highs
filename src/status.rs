@@ -1,6 +1,9 @@
-use std::convert::TryFrom;
-use std::fmt::{Debug, Formatter};
-use std::os::raw::c_int;
+use std::{
+    convert::TryFrom,
+    fmt::{Debug, Formatter},
+};
+
+use js_sys::Number;
 
 use crate::sys::*;
 
@@ -48,7 +51,7 @@ pub enum HighsModelStatus {
 
 /// This error should never happen: an unexpected status was returned
 #[derive(PartialEq, Clone, Copy)]
-pub struct InvalidStatus(pub c_int);
+pub struct InvalidStatus(pub HighsInt);
 
 impl Debug for InvalidStatus {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -62,11 +65,12 @@ impl Debug for InvalidStatus {
     }
 }
 
-impl TryFrom<c_int> for HighsModelStatus {
+impl TryFrom<Number> for HighsModelStatus {
     type Error = InvalidStatus;
 
-    fn try_from(value: c_int) -> Result<Self, Self::Error> {
-        match value {
+    fn try_from(value: Number) -> Result<Self, Self::Error> {
+        let n: HighsInt = value.value_of() as i32;
+        match n {
             MODEL_STATUS_NOTSET => Ok(Self::NotSet),
             MODEL_STATUS_LOAD_ERROR => Ok(Self::LoadError),
             MODEL_STATUS_MODEL_ERROR => Ok(Self::ModelError),
@@ -99,11 +103,12 @@ pub enum HighsStatus {
     Error = 2,
 }
 
-impl TryFrom<c_int> for HighsStatus {
+impl TryFrom<Number> for HighsStatus {
     type Error = InvalidStatus;
 
-    fn try_from(value: c_int) -> Result<Self, InvalidStatus> {
-        match value {
+    fn try_from(value: Number) -> Result<Self, InvalidStatus> {
+        let n: HighsInt = value.value_of() as i32;
+        match n {
             STATUS_OK => Ok(Self::OK),
             STATUS_WARNING => Ok(Self::Warning),
             STATUS_ERROR => Ok(Self::Error),

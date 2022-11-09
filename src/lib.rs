@@ -9,7 +9,7 @@
 //!constraints one by one.
 //!
 //! ```
-//! use highs::{Sense, Model, HighsModelStatus, RowProblem};
+//! use highs::{HighsModelStatus, Model, RowProblem, Sense};
 //! // max: x + 2y + z
 //! // under constraints:
 //! // c1: 3x +  y      <= 6
@@ -61,7 +61,7 @@
 //! ```
 //!
 //! ```
-//! use highs::{Sense, Model, HighsModelStatus, ColProblem};
+//! use highs::{ColProblem, HighsModelStatus, Model, Sense};
 //! // max: x + 2y + z
 //! // under constraints:
 //! // c1: 3x +  y      <= 6
@@ -86,15 +86,15 @@
 //! // All the constraints are at their maximum
 //! assert_eq!(solution.rows(), vec![6., 7.]);
 //! ```
-//! 
+//!
 //! ### Integer variables
-//! 
+//!
 //! HiGHS supports mixed integer-linear programming.
 //! You can use `add_integer_column` to add an integer variable to the problem,
 //! and the solution is then guaranteed to contain a whole number as a value for this variable.
-//! 
+//!
 //! ```
-//! use highs::{Sense, Model, HighsModelStatus, ColProblem};
+//! use highs::{ColProblem, HighsModelStatus, Model, Sense};
 //! // maximize: x + 2y under constraints x + y <= 3.5 and x - y >= 1
 //! let mut pb = ColProblem::default();
 //! let c1 = pb.add_row(..3.5);
@@ -108,11 +108,12 @@
 //! assert_eq!(solved.get_solution().columns(), vec![2.5, 1.]);
 //! ```
 
-use std::convert::{TryFrom, TryInto};
-use std::ffi::{c_void, CString};
-use std::ops::{Bound, RangeBounds};
-use std::os::raw::c_int;
+use std::{
+    convert::{TryFrom, TryInto},
+    ops::{Bound, RangeBounds},
+};
 
+use js_sys::{JsString, Number};
 pub use matrix_col::{ColMatrix, Row};
 pub use matrix_row::{Col, RowMatrix};
 pub use status::{HighsModelStatus, HighsStatus};
@@ -127,11 +128,11 @@ pub type RowProblem = Problem<RowMatrix>;
 /// See [`Problem<ColMatrix>`](Problem#impl).
 pub type ColProblem = Problem<ColMatrix>;
 
-mod sys;
 mod matrix_col;
 mod matrix_row;
 mod options;
 mod status;
+mod sys;
 
 /// A complete optimization problem.
 /// Depending on the `MATRIX` type parameter, the problem will be built
@@ -151,8 +152,8 @@ pub struct Problem<MATRIX = ColMatrix> {
 }
 
 impl<MATRIX: Default> Problem<MATRIX>
-    where
-        Problem<ColMatrix>: From<Problem<MATRIX>>,
+where
+    Problem<ColMatrix>: From<Problem<MATRIX>>,
 {
     /// Number of variables in the problem
     pub fn num_cols(&self) -> usize {
@@ -260,7 +261,7 @@ pub enum Sense {
 impl Model {
     /// Set the optimization sense (minimize by default)
     pub fn set_sense(&mut self, sense: Sense) {
-        let ret = unsafe { Highs_changeObjectiveSense(self.highs.mut_ptr(), sense as c_int) };
+        let ret = unsafe { Highs_changeObjectiveSense(self.highs.mut_ptr(), sense) };
         assert_eq!(ret, STATUS_OK, "changeObjectiveSense failed");
     }
 
@@ -324,7 +325,8 @@ impl Model {
                     problem.matrix.aindex.as_ptr(),
                     problem.matrix.avalue.as_ptr()
                 ))
-            }.map(|_| Self { highs })
+            }
+            .map(|_| Self { highs })
         }
     }
 
@@ -372,7 +374,7 @@ impl From<SolvedModel> for Model {
 }
 
 #[derive(Debug)]
-struct HighsPtr(*mut c_void);
+struct HighsPtr(Number);
 
 impl Drop for HighsPtr {
     fn drop(&mut self) {
@@ -389,17 +391,12 @@ impl Default for HighsPtr {
 impl HighsPtr {
     // To be used instead of unsafe_mut_ptr wherever possible
     #[allow(dead_code)]
-    const fn ptr(&self) -> *const c_void {
+    const fn ptr(&self) -> Number {
         self.0
     }
 
-    // Needed until https://github.com/ERGO-Code/HiGHS/issues/479 is fixed
-    unsafe fn unsafe_mut_ptr(&self) -> *mut c_void {
-        self.0
-    }
-
-    fn mut_ptr(&mut self) -> *mut c_void {
-        self.0
+    fn mut_ptr(&mut self) -> &mut Number {
+        &mut self.0
     }
 
     /// Prevents writing anything to the standard output when solving the model
@@ -413,8 +410,10 @@ impl HighsPtr {
 
     /// Set a custom parameter on the model
     pub fn set_option<STR: Into<Vec<u8>>, V: HighsOptionValue>(&mut self, option: STR, value: V) {
-        let c_str = CString::new(option).expect("invalid option name");
-        let status = unsafe { value.apply_to_highs(self.mut_ptr(), c_str.as_ptr()) };
+        let js_str = String::from_utf8(option.into())
+            .map(|s| JsString::from(s))
+            .expect("invalid option name");
+        let status = value.apply_to_highs(self.mut_ptr(), &js_str);
         try_handle_status(status, "Highs_setOptionValue")
             .expect("An error was encountered in HiGHS.");
     }
@@ -423,7 +422,7 @@ impl HighsPtr {
 impl SolvedModel {
     /// The status of the solution. Should be Optimal if everything went well
     pub fn status(&self) -> HighsModelStatus {
-        let model_status = unsafe { Highs_getModelStatus(self.highs.unsafe_mut_ptr()) };
+        let model_status = Highs_getModelStatus(self.highs.ptr());
         HighsModelStatus::try_from(model_status).unwrap()
     }
 
@@ -437,15 +436,13 @@ impl SolvedModel {
         let mut rowdual: Vec<f64> = vec![0.; rows];
 
         // Get the primal and dual solution
-        unsafe {
-            Highs_getSolution(
-                self.highs.unsafe_mut_ptr(),
-                colvalue.as_mut_ptr(),
-                coldual.as_mut_ptr(),
-                rowvalue.as_mut_ptr(),
-                rowdual.as_mut_ptr(),
-            );
-        }
+        Highs_getSolution(
+            self.highs.ptr(),
+            colvalue.as_mut_ptr(),
+            coldual.as_mut_ptr(),
+            rowvalue.as_mut_ptr(),
+            rowdual.as_mut_ptr(),
+        );
 
         Solution {
             colvalue,
@@ -457,13 +454,13 @@ impl SolvedModel {
 
     /// Number of variables
     fn num_cols(&self) -> usize {
-        let n = unsafe { Highs_getNumCols(self.highs.unsafe_mut_ptr()) };
+        let n = Highs_getNumCols(self.highs.ptr());
         n.try_into().expect("invalid number of columns")
     }
 
     /// Number of constraints
     fn num_rows(&self) -> usize {
-        let n = unsafe { Highs_getNumRows(self.highs.unsafe_mut_ptr()) };
+        let n = Highs_getNumRows(self.highs.ptr());
         n.try_into().expect("invalid number of rows")
     }
 }
@@ -496,7 +493,7 @@ impl Solution {
     }
 }
 
-fn try_handle_status(status: c_int, msg: &str) -> Result<HighsStatus, HighsStatus> {
+fn try_handle_status(status: Number, msg: &str) -> Result<HighsStatus, HighsStatus> {
     let status_enum = HighsStatus::try_from(status)
         .expect("HiGHS returned an unexpected status value. Please report it as a bug to https://github.com/rust-or/highs/issues");
     match status_enum {
@@ -508,44 +505,3 @@ fn try_handle_status(status: c_int, msg: &str) -> Result<HighsStatus, HighsStatu
         error => Err(error),
     }
 }
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    fn test_coefs(coefs: [f64; 2]) {
-        // See: https://github.com/rust-or/highs/issues/5
-        let mut problem = RowProblem::new();
-        // Minimize x + y subject to x ≥ 0, y ≥ 0.
-        let x = problem.add_column(1., -1..);
-        let y = problem.add_column(1., 0..);
-        problem.add_row(..1, [x, y].iter().copied().zip(coefs)); // 1 ≥ x + c y.
-        let solution = problem.optimise(Sense::Minimise).solve().get_solution();
-        assert_eq!([-1., 0.], solution.columns());
-    }
-
-    #[test]
-    fn test_single_zero_coef() {
-        test_coefs([1.0, 0.0]);
-        test_coefs([0.0, 1.0]);
-    }
-
-    #[test]
-    fn test_all_zero_coefs() {
-        test_coefs([0.0, 0.0])
-    }
-
-    #[test]
-    fn test_no_zero_coefs() {
-        test_coefs([1.0, 1.0])
-    }
-
-    #[test]
-    fn test_infeasible_empty_row() {
-        let mut problem = RowProblem::new();
-        let row_factors: &[(Col, f64)] = &[];
-        problem.add_row(2..3, row_factors);
-        let _ = problem.optimise(Sense::Minimise).try_solve();
-    }
-}
-
