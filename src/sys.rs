@@ -35,13 +35,31 @@ pub const MATRIX_FORMAT_ROW_WISE: HighsInt = 2;
 pub const OBJECTIVE_SENSE_MINIMIZE: HighsInt = 1;
 pub const OBJECTIVE_SENSE_MAXIMIZE: HighsInt = -1;
 
-use js_sys::{global, Function, Reflect};
-use wasm_bindgen::{prelude::*, JsCast};
+use js_sys::{JsString, Number};
+use wasm_bindgen::prelude::*;
 
-fn get_highs_method(name: &str) -> Option<&'static Function> {
-    let highs = Reflect::get(&global(), &JsValue::from("highs"))
-        .expect("HiGHS module not present in global scope!");
-    Reflect::get(&highs, &JsValue::from(name))
-        .ok()
-        .and_then(|f| f.dyn_ref())
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen]
+    pub fn Highs_create() -> Number;
+    #[wasm_bindgen]
+    pub fn Highs_changeObjectiveSense(h: Number, s: Number) -> Number;
+    #[wasm_bindgen]
+    pub fn Highs_destroy(h: Number);
+    #[wasm_bindgen]
+    pub fn Highs_getNumCols(h: Number) -> Number;
+    #[wasm_bindgen]
+    pub fn Highs_getNumRows(h: Number) -> Number;
+    #[wasm_bindgen]
+    pub fn Highs_getModelStatus(h: Number) -> Number;
+    #[wasm_bindgen]
+    pub fn Highs_setBoolOptionValue(h: Number, o: JsString, v: Number) -> Number;
+    #[wasm_bindgen]
+    pub fn Highs_setDoubleOptionValue(h: Number, o: JsString, v: Number) -> Number;
+    #[wasm_bindgen]
+    pub fn Highs_setIntOptionValue(h: Number, o: JsString, v: Number) -> Number;
+    #[wasm_bindgen]
+    pub fn Highs_setStringOptionValue(h: Number, o: JsString, v: JsString) -> Number;
+    #[wasm_bindgen]
+    pub fn Highs_run(h: Number) -> Number;
 }

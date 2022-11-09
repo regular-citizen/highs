@@ -261,7 +261,7 @@ pub enum Sense {
 impl Model {
     /// Set the optimization sense (minimize by default)
     pub fn set_sense(&mut self, sense: Sense) {
-        let ret = unsafe { Highs_changeObjectiveSense(self.highs.mut_ptr(), sense) };
+        let ret = Highs_changeObjectiveSense(self.highs.ptr(), Number::from(sense as i32));
         assert_eq!(ret, STATUS_OK, "changeObjectiveSense failed");
     }
 
@@ -290,7 +290,7 @@ impl Model {
         unsafe {
             if let Some(integrality) = &problem.integrality {
                 highs_call!(Highs_passMip(
-                    highs.mut_ptr(),
+                    highs.ptr(),
                     c(problem.num_cols()),
                     c(problem.num_rows()),
                     c(problem.matrix.avalue.len()),
@@ -309,7 +309,7 @@ impl Model {
                 ))
             } else {
                 highs_call!(Highs_passLp(
-                    highs.mut_ptr(),
+                    highs.ptr(),
                     c(problem.num_cols()),
                     c(problem.num_rows()),
                     c(problem.matrix.avalue.len()),
@@ -360,8 +360,7 @@ impl Model {
 
     /// Find the optimal value for the problem, return an error if the problem is incoherent
     pub fn try_solve(mut self) -> Result<SolvedModel, HighsStatus> {
-        unsafe { highs_call!(Highs_run(self.highs.mut_ptr())) }
-            .map(|_| SolvedModel { highs: self.highs })
+        highs_call!(Highs_run(self.highs.ptr())).map(|_| SolvedModel { highs: self.highs })
     }
 }
 
@@ -378,13 +377,13 @@ struct HighsPtr(Number);
 
 impl Drop for HighsPtr {
     fn drop(&mut self) {
-        unsafe { Highs_destroy(self.0) }
+        Highs_destroy(self.0);
     }
 }
 
 impl Default for HighsPtr {
     fn default() -> Self {
-        Self(unsafe { Highs_create() })
+        Self(Highs_create())
     }
 }
 
@@ -393,10 +392,6 @@ impl HighsPtr {
     #[allow(dead_code)]
     const fn ptr(&self) -> Number {
         self.0
-    }
-
-    fn mut_ptr(&mut self) -> &mut Number {
-        &mut self.0
     }
 
     /// Prevents writing anything to the standard output when solving the model
@@ -413,7 +408,7 @@ impl HighsPtr {
         let js_str = String::from_utf8(option.into())
             .map(|s| JsString::from(s))
             .expect("invalid option name");
-        let status = value.apply_to_highs(self.mut_ptr(), &js_str);
+        let status = value.apply_to_highs(*self, &js_str);
         try_handle_status(status, "Highs_setOptionValue")
             .expect("An error was encountered in HiGHS.");
     }
@@ -454,14 +449,12 @@ impl SolvedModel {
 
     /// Number of variables
     fn num_cols(&self) -> usize {
-        let n = Highs_getNumCols(self.highs.ptr());
-        n.try_into().expect("invalid number of columns")
+        Highs_getNumCols(self.highs.ptr()).value_of() as usize
     }
 
     /// Number of constraints
     fn num_rows(&self) -> usize {
-        let n = Highs_getNumRows(self.highs.ptr());
-        n.try_into().expect("invalid number of rows")
+        Highs_getNumRows(self.highs.ptr()).value_of() as usize
     }
 }
 
