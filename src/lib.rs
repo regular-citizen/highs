@@ -425,19 +425,10 @@ impl SolvedModel {
     pub fn get_solution(&self) -> Solution {
         let cols = self.num_cols();
         let rows = self.num_rows();
-        let mut colvalue: Vec<f64> = vec![0.; cols];
-        let mut coldual: Vec<f64> = vec![0.; cols];
-        let mut rowvalue: Vec<f64> = vec![0.; rows];
-        let mut rowdual: Vec<f64> = vec![0.; rows];
 
         // Get the primal and dual solution
-        Highs_getSolution(
-            self.highs.ptr(),
-            colvalue.as_mut_ptr(),
-            coldual.as_mut_ptr(),
-            rowvalue.as_mut_ptr(),
-            rowdual.as_mut_ptr(),
-        );
+        let (_, colvalue, coldual, rowvalue, rowdual) =
+            Highs_getSolution_wrap(self.highs.ptr(), cols, rows);
 
         Solution {
             colvalue,

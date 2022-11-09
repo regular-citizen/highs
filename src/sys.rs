@@ -2,6 +2,11 @@
 #![allow(non_camel_case_types)]
 #![allow(non_snake_case)]
 
+use std::mem;
+
+use js_sys::{JsString, Number, Uint8Array};
+use wasm_bindgen::prelude::*;
+
 // Lifted from highs-sys
 pub type HighsInt = i32;
 
@@ -35,9 +40,6 @@ pub const MATRIX_FORMAT_ROW_WISE: HighsInt = 2;
 pub const OBJECTIVE_SENSE_MINIMIZE: HighsInt = 1;
 pub const OBJECTIVE_SENSE_MAXIMIZE: HighsInt = -1;
 
-use js_sys::{JsString, Number};
-use wasm_bindgen::prelude::*;
-
 #[wasm_bindgen]
 extern "C" {
     #[wasm_bindgen]
@@ -53,6 +55,14 @@ extern "C" {
     #[wasm_bindgen]
     pub fn Highs_getModelStatus(h: Number) -> Number;
     #[wasm_bindgen]
+    pub fn Highs_getSolution(
+        h: Number,
+        cv: &Uint8Array,
+        cd: &Uint8Array,
+        rv: &Uint8Array,
+        rd: &Uint8Array,
+    ) -> Number;
+    #[wasm_bindgen]
     pub fn Highs_setBoolOptionValue(h: Number, o: JsString, v: Number) -> Number;
     #[wasm_bindgen]
     pub fn Highs_setDoubleOptionValue(h: Number, o: JsString, v: Number) -> Number;
@@ -62,4 +72,40 @@ extern "C" {
     pub fn Highs_setStringOptionValue(h: Number, o: JsString, v: JsString) -> Number;
     #[wasm_bindgen]
     pub fn Highs_run(h: Number) -> Number;
+}
+
+pub fn Highs_getSolution_wrap(
+    h: Number,
+    cols: usize,
+    rows: usize,
+) -> (Number, Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>) {
+    let mut cv = Uint8Array::new_with_length((cols * mem::size_of::<f64>()) as u32);
+    let mut cd = Uint8Array::new_with_length((cols * mem::size_of::<f64>()) as u32);
+    let mut rv = Uint8Array::new_with_length((rows * mem::size_of::<f64>()) as u32);
+    let mut rd = Uint8Array::new_with_length((rows * mem::size_of::<f64>()) as u32);
+    let ret = Highs_getSolution(h, &mut cv, &mut cd, &mut rv, &mut rd);
+    let mut colvalue: Vec<f64> = Vec::with_capacity(cols);
+    let mut coldual: Vec<f64> = Vec::with_capacity(cols);
+    let mut rowvalue: Vec<f64> = Vec::with_capacity(rows);
+    let mut rowdual: Vec<f64> = Vec::with_capacity(rows);
+    if !ret.is_truthy() {
+        let mut buff: [u8; mem::size_of::<f64>()] = Default::default();
+        for c in cv.to_vec().chunks_exact(mem::size_of::<f64>()) {
+            buff.copy_from_slice(c);
+            colvalue.push(f64::from_ne_bytes(buff));
+        }
+        for c in cd.to_vec().chunks_exact(mem::size_of::<f64>()) {
+            buff.copy_from_slice(c);
+            coldual.push(f64::from_ne_bytes(buff));
+        }
+        for c in rv.to_vec().chunks_exact(mem::size_of::<f64>()) {
+            buff.copy_from_slice(c);
+            rowvalue.push(f64::from_ne_bytes(buff));
+        }
+        for c in rd.to_vec().chunks_exact(mem::size_of::<f64>()) {
+            buff.copy_from_slice(c);
+            rowdual.push(f64::from_ne_bytes(buff));
+        }
+    }
+    (ret, colvalue, coldual, rowvalue, rowdual)
 }
