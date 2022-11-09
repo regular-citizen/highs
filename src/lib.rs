@@ -113,11 +113,10 @@ use std::ffi::{c_void, CString};
 use std::ops::{Bound, RangeBounds};
 use std::os::raw::c_int;
 
-use highs_sys::*;
-
 pub use matrix_col::{ColMatrix, Row};
 pub use matrix_row::{Col, RowMatrix};
 pub use status::{HighsModelStatus, HighsStatus};
+pub use sys::*;
 
 use crate::options::HighsOptionValue;
 
@@ -128,6 +127,7 @@ pub type RowProblem = Problem<RowMatrix>;
 /// See [`Problem<ColMatrix>`](Problem#impl).
 pub type ColProblem = Problem<ColMatrix>;
 
+mod sys;
 mod matrix_col;
 mod matrix_row;
 mod options;

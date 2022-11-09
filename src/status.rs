@@ -2,7 +2,7 @@ use std::convert::TryFrom;
 use std::fmt::{Debug, Formatter};
 use std::os::raw::c_int;
 
-use highs_sys::*;
+use crate::sys::*;
 
 /// The kinds of results of an optimization
 #[derive(Clone, Copy, Debug, PartialOrd, PartialEq, Ord, Eq)]
@@ -66,7 +66,6 @@ impl TryFrom<c_int> for HighsModelStatus {
     type Error = InvalidStatus;
 
     fn try_from(value: c_int) -> Result<Self, Self::Error> {
-        use highs_sys::*;
         match value {
             MODEL_STATUS_NOTSET => Ok(Self::NotSet),
             MODEL_STATUS_LOAD_ERROR => Ok(Self::LoadError),
