@@ -63,15 +63,70 @@ extern "C" {
         rd: &Uint8Array,
     ) -> Number;
     #[wasm_bindgen]
-    pub fn Highs_setBoolOptionValue(h: Number, o: JsString, v: Number) -> Number;
+    pub fn Highs_passLp(
+        h: Number,
+        nc: Number,
+        nr: Number,
+        nnz: Number,
+        afmt: Number,
+        sense: Number,
+        offset: Number,
+        cc: &Uint8Array,
+        cl: &Uint8Array,
+        cu: &Uint8Array,
+        rl: &Uint8Array,
+        ru: &Uint8Array,
+        ast: &Uint8Array,
+        aidx: &Uint8Array,
+        av: &Uint8Array,
+    ) -> Number;
     #[wasm_bindgen]
-    pub fn Highs_setDoubleOptionValue(h: Number, o: JsString, v: Number) -> Number;
+    pub fn Highs_passMip(
+        h: Number,
+        nc: Number,
+        nr: Number,
+        nnz: Number,
+        afmt: Number,
+        sense: Number,
+        offset: Number,
+        cc: &Uint8Array,
+        cl: &Uint8Array,
+        cu: &Uint8Array,
+        rl: &Uint8Array,
+        ru: &Uint8Array,
+        ast: &Uint8Array,
+        aidx: &Uint8Array,
+        av: &Uint8Array,
+        int: &Uint8Array,
+    ) -> Number;
     #[wasm_bindgen]
-    pub fn Highs_setIntOptionValue(h: Number, o: JsString, v: Number) -> Number;
+    pub fn Highs_setBoolOptionValue(h: Number, o: &JsString, v: Number) -> Number;
     #[wasm_bindgen]
-    pub fn Highs_setStringOptionValue(h: Number, o: JsString, v: JsString) -> Number;
+    pub fn Highs_setDoubleOptionValue(h: Number, o: &JsString, v: Number) -> Number;
+    #[wasm_bindgen]
+    pub fn Highs_setIntOptionValue(h: Number, o: &JsString, v: Number) -> Number;
+    #[wasm_bindgen]
+    pub fn Highs_setStringOptionValue(h: Number, o: &JsString, v: &JsString) -> Number;
     #[wasm_bindgen]
     pub fn Highs_run(h: Number) -> Number;
+}
+
+pub fn c(n: usize) -> Number {
+    Number::from(n as u32)
+}
+
+pub fn c_array_f64(v: &Vec<f64>) -> Uint8Array {
+    let array = Uint8Array::new_with_length((v.len() * mem::size_of::<f64>()) as u32);
+    let bytes: Vec<u8> = v.iter().flat_map(|i| f64::to_ne_bytes(*i)).collect();
+    array.copy_from(&bytes);
+    array
+}
+
+pub fn c_array_i32(v: &Vec<i32>) -> Uint8Array {
+    let array = Uint8Array::new_with_length((v.len() * mem::size_of::<i32>()) as u32);
+    let bytes: Vec<u8> = v.iter().flat_map(|i| i32::to_ne_bytes(*i)).collect();
+    array.copy_from(&bytes);
+    array
 }
 
 pub fn Highs_getSolution_wrap(
@@ -79,11 +134,11 @@ pub fn Highs_getSolution_wrap(
     cols: usize,
     rows: usize,
 ) -> (Number, Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>) {
-    let mut cv = Uint8Array::new_with_length((cols * mem::size_of::<f64>()) as u32);
-    let mut cd = Uint8Array::new_with_length((cols * mem::size_of::<f64>()) as u32);
-    let mut rv = Uint8Array::new_with_length((rows * mem::size_of::<f64>()) as u32);
-    let mut rd = Uint8Array::new_with_length((rows * mem::size_of::<f64>()) as u32);
-    let ret = Highs_getSolution(h, &mut cv, &mut cd, &mut rv, &mut rd);
+    let cv = Uint8Array::new_with_length((cols * mem::size_of::<f64>()) as u32);
+    let cd = Uint8Array::new_with_length((cols * mem::size_of::<f64>()) as u32);
+    let rv = Uint8Array::new_with_length((rows * mem::size_of::<f64>()) as u32);
+    let rd = Uint8Array::new_with_length((rows * mem::size_of::<f64>()) as u32);
+    let ret = Highs_getSolution(h, &cv, &cd, &rv, &rd);
     let mut colvalue: Vec<f64> = Vec::with_capacity(cols);
     let mut coldual: Vec<f64> = Vec::with_capacity(cols);
     let mut rowvalue: Vec<f64> = Vec::with_capacity(rows);

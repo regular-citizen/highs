@@ -50,7 +50,7 @@ pub enum HighsModelStatus {
 }
 
 /// This error should never happen: an unexpected status was returned
-#[derive(PartialEq, Clone, Copy)]
+#[derive(Eq, PartialEq, Clone, Copy)]
 pub struct InvalidStatus(pub HighsInt);
 
 impl Debug for InvalidStatus {

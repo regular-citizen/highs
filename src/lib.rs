@@ -1,4 +1,3 @@
-#![forbid(missing_docs)]
 //! Safe rust binding to the [HiGHS](https://highs.dev) linear programming solver.
 //!
 //! ## Usage example
@@ -223,10 +222,6 @@ fn bound_value<N: Into<f64> + Copy>(b: Bound<&N>) -> Option<f64> {
     }
 }
 
-fn c(n: usize) -> HighsInt {
-    n.try_into().expect("size too large for HiGHS")
-}
-
 macro_rules! highs_call {
     ($function_name:ident ($($param:expr),+)) => {
         try_handle_status(
@@ -286,48 +281,46 @@ impl Model {
             problem.num_cols(),
             problem.num_rows()
         );
-        let offset = 0.0;
-        unsafe {
-            if let Some(integrality) = &problem.integrality {
-                highs_call!(Highs_passMip(
-                    highs.ptr(),
-                    c(problem.num_cols()),
-                    c(problem.num_rows()),
-                    c(problem.matrix.avalue.len()),
-                    MATRIX_FORMAT_COLUMN_WISE,
-                    OBJECTIVE_SENSE_MINIMIZE,
-                    offset,
-                    problem.colcost.as_ptr(),
-                    problem.collower.as_ptr(),
-                    problem.colupper.as_ptr(),
-                    problem.rowlower.as_ptr(),
-                    problem.rowupper.as_ptr(),
-                    problem.matrix.astart.as_ptr(),
-                    problem.matrix.aindex.as_ptr(),
-                    problem.matrix.avalue.as_ptr(),
-                    integrality.as_ptr()
-                ))
-            } else {
-                highs_call!(Highs_passLp(
-                    highs.ptr(),
-                    c(problem.num_cols()),
-                    c(problem.num_rows()),
-                    c(problem.matrix.avalue.len()),
-                    MATRIX_FORMAT_COLUMN_WISE,
-                    OBJECTIVE_SENSE_MINIMIZE,
-                    offset,
-                    problem.colcost.as_ptr(),
-                    problem.collower.as_ptr(),
-                    problem.colupper.as_ptr(),
-                    problem.rowlower.as_ptr(),
-                    problem.rowupper.as_ptr(),
-                    problem.matrix.astart.as_ptr(),
-                    problem.matrix.aindex.as_ptr(),
-                    problem.matrix.avalue.as_ptr()
-                ))
-            }
-            .map(|_| Self { highs })
+        let offset: f32 = 0.0;
+        if let Some(integrality) = &problem.integrality {
+            highs_call!(Highs_passMip(
+                highs.ptr(),
+                c(problem.num_cols()),
+                c(problem.num_rows()),
+                c(problem.matrix.avalue.len()),
+                Number::from(MATRIX_FORMAT_COLUMN_WISE),
+                Number::from(OBJECTIVE_SENSE_MINIMIZE),
+                Number::from(offset),
+                &c_array_f64(&problem.colcost),
+                &c_array_f64(&problem.collower),
+                &c_array_f64(&problem.colupper),
+                &c_array_f64(&problem.rowlower),
+                &c_array_f64(&problem.rowupper),
+                &c_array_i32(&problem.matrix.astart),
+                &c_array_i32(&problem.matrix.aindex),
+                &c_array_f64(&problem.matrix.avalue),
+                &c_array_i32(integrality)
+            ))
+        } else {
+            highs_call!(Highs_passLp(
+                highs.ptr(),
+                c(problem.num_cols()),
+                c(problem.num_rows()),
+                c(problem.matrix.avalue.len()),
+                Number::from(MATRIX_FORMAT_COLUMN_WISE),
+                Number::from(OBJECTIVE_SENSE_MINIMIZE),
+                Number::from(offset),
+                &c_array_f64(&problem.colcost),
+                &c_array_f64(&problem.collower),
+                &c_array_f64(&problem.colupper),
+                &c_array_f64(&problem.rowlower),
+                &c_array_f64(&problem.rowupper),
+                &c_array_i32(&problem.matrix.astart),
+                &c_array_i32(&problem.matrix.aindex),
+                &c_array_f64(&problem.matrix.avalue)
+            ))
         }
+        .map(|_| Self { highs })
     }
 
     /// Prevents writing anything to the standard output or to files when solving the model
@@ -359,7 +352,7 @@ impl Model {
     }
 
     /// Find the optimal value for the problem, return an error if the problem is incoherent
-    pub fn try_solve(mut self) -> Result<SolvedModel, HighsStatus> {
+    pub fn try_solve(self) -> Result<SolvedModel, HighsStatus> {
         highs_call!(Highs_run(self.highs.ptr())).map(|_| SolvedModel { highs: self.highs })
     }
 }
@@ -377,7 +370,7 @@ struct HighsPtr(Number);
 
 impl Drop for HighsPtr {
     fn drop(&mut self) {
-        Highs_destroy(self.0);
+        Highs_destroy(self.0.clone());
     }
 }
 
@@ -390,8 +383,8 @@ impl Default for HighsPtr {
 impl HighsPtr {
     // To be used instead of unsafe_mut_ptr wherever possible
     #[allow(dead_code)]
-    const fn ptr(&self) -> Number {
-        self.0
+    fn ptr(&self) -> Number {
+        self.0.clone()
     }
 
     /// Prevents writing anything to the standard output when solving the model
@@ -406,9 +399,9 @@ impl HighsPtr {
     /// Set a custom parameter on the model
     pub fn set_option<STR: Into<Vec<u8>>, V: HighsOptionValue>(&mut self, option: STR, value: V) {
         let js_str = String::from_utf8(option.into())
-            .map(|s| JsString::from(s))
+            .map(JsString::from)
             .expect("invalid option name");
-        let status = value.apply_to_highs(*self, &js_str);
+        let status = value.apply_to_highs(self.ptr(), &js_str);
         try_handle_status(status, "Highs_setOptionValue")
             .expect("An error was encountered in HiGHS.");
     }
