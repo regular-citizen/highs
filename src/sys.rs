@@ -4,7 +4,7 @@
 
 use std::mem;
 
-use js_sys::{JsString, Number, Uint8Array};
+use js_sys::{JsString, Number, Object, Uint8Array, Reflect};
 use wasm_bindgen::prelude::*;
 
 // Lifted from highs-sys
@@ -57,11 +57,9 @@ extern "C" {
     #[wasm_bindgen]
     pub fn Highs_getSolution(
         h: Number,
-        cv: &Uint8Array,
-        cd: &Uint8Array,
-        rv: &Uint8Array,
-        rd: &Uint8Array,
-    ) -> Number;
+        c: Number,
+        r: Number,
+    ) -> Object;
     #[wasm_bindgen]
     pub fn Highs_passLp(
         h: Number,
@@ -133,34 +131,35 @@ pub fn Highs_getSolution_wrap(
     h: Number,
     cols: usize,
     rows: usize,
-) -> (Number, Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>) {
-    let cv = Uint8Array::new_with_length((cols * mem::size_of::<f64>()) as u32);
-    let cd = Uint8Array::new_with_length((cols * mem::size_of::<f64>()) as u32);
-    let rv = Uint8Array::new_with_length((rows * mem::size_of::<f64>()) as u32);
-    let rd = Uint8Array::new_with_length((rows * mem::size_of::<f64>()) as u32);
-    let ret = Highs_getSolution(h, &cv, &cd, &rv, &rd);
+) -> (HighsInt, Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>) {
+    let o = Highs_getSolution(h, Number::from(cols as u32), Number::from(rows as u32));
+    let ret = Reflect::get(&o, &JsValue::from("ret")).unwrap();
     let mut colvalue: Vec<f64> = Vec::with_capacity(cols);
     let mut coldual: Vec<f64> = Vec::with_capacity(cols);
     let mut rowvalue: Vec<f64> = Vec::with_capacity(rows);
     let mut rowdual: Vec<f64> = Vec::with_capacity(rows);
     if !ret.is_truthy() {
         let mut buff: [u8; mem::size_of::<f64>()] = Default::default();
+        let cv = Uint8Array::from(Reflect::get(&o, &JsValue::from("cv")).unwrap());
         for c in cv.to_vec().chunks_exact(mem::size_of::<f64>()) {
             buff.copy_from_slice(c);
             colvalue.push(f64::from_ne_bytes(buff));
         }
+        let cd = Uint8Array::from(Reflect::get(&o, &JsValue::from("cd")).unwrap());
         for c in cd.to_vec().chunks_exact(mem::size_of::<f64>()) {
             buff.copy_from_slice(c);
             coldual.push(f64::from_ne_bytes(buff));
         }
+        let rv = Uint8Array::from(Reflect::get(&o, &JsValue::from("rv")).unwrap());
         for c in rv.to_vec().chunks_exact(mem::size_of::<f64>()) {
             buff.copy_from_slice(c);
             rowvalue.push(f64::from_ne_bytes(buff));
         }
+        let rd = Uint8Array::from(Reflect::get(&o, &JsValue::from("rd")).unwrap());
         for c in rd.to_vec().chunks_exact(mem::size_of::<f64>()) {
             buff.copy_from_slice(c);
             rowdual.push(f64::from_ne_bytes(buff));
         }
     }
-    (ret, colvalue, coldual, rowvalue, rowdual)
+    (ret.as_f64().unwrap() as HighsInt, colvalue, coldual, rowvalue, rowdual)
 }
